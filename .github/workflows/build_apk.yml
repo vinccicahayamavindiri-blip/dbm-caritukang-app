@@ -1,0 +1,71 @@
+name: Build Android APK (Dewa Bangun Mandiri)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Scaffold Flutter platform files & apply custom code
+        run: |
+          mkdir -p /tmp/dbm_backup
+          cp pubspec.yaml /tmp/dbm_backup/
+          cp lib/main.dart /tmp/dbm_backup/
+          cp assets/images/logo.png /tmp/dbm_backup/
+          cp android/app/src/main/AndroidManifest.xml /tmp/dbm_backup/
+          cp ios/Runner/Info.plist /tmp/dbm_backup/
+
+          rm -rf android ios
+          flutter create . --project-name dbm_caritukang --org pro.caritukang --platforms android,ios
+
+          mkdir -p assets/images
+          cp /tmp/dbm_backup/pubspec.yaml pubspec.yaml
+          cp /tmp/dbm_backup/main.dart lib/main.dart
+          cp /tmp/dbm_backup/logo.png assets/images/logo.png
+          cp /tmp/dbm_backup/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          cp /tmp/dbm_backup/Info.plist ios/Runner/Info.plist
+
+      - name: Install dependencies & generate app icons
+        run: |
+          flutter pub get
+          dart run flutter_launcher_icons
+
+      - name: Build Release APK
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/Dewa-Bangun-Mandiri.apk
+
+      - name: Upload APK to Workflow Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dewa-Bangun-Mandiri-APK
+          path: build/app/outputs/flutter-apk/Dewa-Bangun-Mandiri.apk
+
+      - name: Publish APK to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "Dewa Bangun Mandiri APK v1.0.${{ github.run_number }}"
+          body: "File APK Android siap instal untuk **Dewa Bangun Mandiri (dbm.caritukang.pro)** dengan fitur Akses Kamera, Upload File, Lokasi GPS, dan Link Eksternal."
+          files: build/app/outputs/flutter-apk/Dewa-Bangun-Mandiri.apk
